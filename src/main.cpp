@@ -178,7 +178,7 @@ void loop()
     configIndividual();
     while (digitalRead(BUTTON_PIN))
     {
-        blink(250);
+        blink(200);
     }
 
     // Wakeup sequence
@@ -203,10 +203,10 @@ void loop()
             break;
         }
 
-        randomHold[0] = (rand() % 100 + 50) * DEG_TO_STEPS;
-        randomHold[1] = (rand() % 100 + 50) * DEG_TO_STEPS;
-        randomHold[2] = (rand() % 100 + 50) * DEG_TO_STEPS;
-        randomHold[3] = (rand() % 100 + 50) * DEG_TO_STEPS;
+        randomHold[0] = (rand() % 100 + 40) * DEG_TO_STEPS;
+        randomHold[1] = (rand() % 100 + 40) * DEG_TO_STEPS;
+        randomHold[2] = (rand() % 100 + 40) * DEG_TO_STEPS;
+        randomHold[3] = (state ? 40 : 140) * DEG_TO_STEPS;
 
         steppers.moveTo(randomHold);
         steppers.runSpeedToPosition();
