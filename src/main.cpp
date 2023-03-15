@@ -9,7 +9,7 @@ bool state = false;
 
 const int MICROSTEPPING = 16;
 const long R_TO_STEPS = 200.0 * MICROSTEPPING;
-const long SPEED = 0.25 * R_TO_STEPS;
+const long SPEED = 0.5 * R_TO_STEPS;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
 const long GROUP_SPEED = 0.3 * R_TO_STEPS;
 const long DEG_TO_STEPS = R_TO_STEPS / 360;
@@ -79,8 +79,8 @@ AccelStepper stepper4 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN
 
 MultiStepper steppers;
 
-
-void enableSteppers(bool enable) {
+void enableSteppers(bool enable)
+{
     digitalWrite(X_ENABLE_PIN, !enable);
     digitalWrite(Y_ENABLE_PIN, !enable);
     digitalWrite(Z_ENABLE_PIN, !enable);
@@ -161,6 +161,19 @@ void setup()
     steppers.addStepper(stepper3);
     steppers.addStepper(stepper2);
     steppers.addStepper(stepper1);
+}
+
+void hotGlueMode()
+{
+    // not used, just for when it is needed
+    configIndividual();
+    while (digitalRead(BUTTON_PIN))
+    {
+        stepper1.runSpeed();
+        stepper2.runSpeed();
+        stepper3.runSpeed();
+        stepper4.runSpeed();
+    }
 }
 
 void blink(int wait)
