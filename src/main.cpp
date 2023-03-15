@@ -5,10 +5,11 @@
 #include <MultiStepper.cpp>
 
 const int MICROSTEPPING = 16;
-const long STEPS_PER_R = 200.0 * MICROSTEPPING;
-const long SPEED = 1 * STEPS_PER_R;
+const long R_TO_STEPS = 200.0 * MICROSTEPPING;
+const long SPEED = 1 * R_TO_STEPS;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
-const long GROUP_SPEED = 0.3 * STEPS_PER_R;
+const long GROUP_SPEED = 0.3 * R_TO_STEPS;
+const long DEG_TO_STEPS = R_TO_STEPS / 360;
 
 const int FAN_PIN = 9;
 const int BED_PIN = 8;
@@ -33,20 +34,36 @@ const int E_STEP_PIN = 26;
 const int E_DIR_PIN = 28;
 const int E_ENABLE_PIN = 24;
 
-const int NUM_FRAMES = 4;
+const int NUM_FRAMES = 18;
 const int NUM_STEPPERS = 4;
+// Home is approximately the negative x axis
 long positions[NUM_FRAMES][NUM_STEPPERS] = {
-    {90, 180, 270, 360},
+    {90, 0, 0, 0},
+    {90, 90, 0, 0},
+    {90, 90, 90, 0},
+    {90, 90, 90, 90},
+    {170, 150, 130, 110},
+    {30, 50, 70, 90},
+    {170, 170, 170, 170},
+    {30, 30, 30, 30},
+    {170, 170, 170, 170},
+    {30, 30, 30, 30},
+    {30, 170, 30, 170},
+    {30, 30, 30, 30},
+    {170, 30, 170, 30},
+    {90, 90, 90, 90},
+    {90, 90, 90, 0},
+    {90, 90, 0, 0},
+    {90, 0, 0, 0},
     {0, 0, 0, 0},
-    {360, 270, 180, 90},
-    {0, 0, 0, 0},
-    // {0, 0, 0, 0},
     // {0, 0, 0, 0},
     // {0, 0, 0, 0},
     // {0, 0, 0, 0},
     // {0, 0, 0, 0},
     // {0, 0, 0, 0},
 };
+
+long randomHold[NUM_STEPPERS] = {0, 0, 0, 0};
 
 AccelStepper stepper1 = AccelStepper(1, X_STEP_PIN, X_DIR_PIN);
 AccelStepper stepper2 = AccelStepper(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIR_PIN);
@@ -65,31 +82,35 @@ void configIndividual()
 
     // Configure steppers
     stepper1.setMaxSpeed(SPEED);
-    stepper1.setSpeed(SPEED);
-    stepper1.setAcceleration(ACCELERATION);
-
     stepper2.setMaxSpeed(SPEED);
-    stepper2.setSpeed(SPEED);
-    stepper2.setAcceleration(ACCELERATION);
-
     stepper3.setMaxSpeed(SPEED);
-    stepper3.setSpeed(SPEED);
-    stepper3.setAcceleration(ACCELERATION);
-
     stepper4.setMaxSpeed(SPEED);
+
+    stepper1.setSpeed(SPEED);
+    stepper2.setSpeed(SPEED);
+    stepper3.setSpeed(SPEED);
     stepper4.setSpeed(SPEED);
+
+    stepper1.setAcceleration(ACCELERATION);
+    stepper2.setAcceleration(ACCELERATION);
+    stepper3.setAcceleration(ACCELERATION);
     stepper4.setAcceleration(ACCELERATION);
 }
 
 void configGroup()
 {
     // Reset positions
-    // stepper1.setCurrentPosition(0);
-    // stepper2.setCurrentPosition(0);
-    // stepper3.setCurrentPosition(0);
-    // stepper4.setCurrentPosition(0);
+    stepper1.setCurrentPosition(0);
+    stepper2.setCurrentPosition(0);
+    stepper3.setCurrentPosition(0);
+    stepper4.setCurrentPosition(0);
 
     // Configure speeds
+    stepper1.setMaxSpeed(GROUP_SPEED);
+    stepper2.setMaxSpeed(GROUP_SPEED);
+    stepper3.setMaxSpeed(GROUP_SPEED);
+    stepper4.setMaxSpeed(GROUP_SPEED);
+
     stepper1.setSpeed(GROUP_SPEED);
     stepper2.setSpeed(GROUP_SPEED);
     stepper3.setSpeed(GROUP_SPEED);
@@ -105,7 +126,7 @@ void setup()
     {
         for (int j = 0; j < NUM_STEPPERS; j++)
         {
-            positions[i][j] = (long)positions[i][j] * STEPS_PER_R / 360;
+            positions[i][j] = (long)positions[i][j] * DEG_TO_STEPS;
         }
     }
 
@@ -124,43 +145,51 @@ void setup()
     configIndividual();
 
     // Set positions
-    stepper1.moveTo(10 * STEPS_PER_R);
-    stepper2.moveTo(10 * STEPS_PER_R);
-    stepper3.moveTo(10 * STEPS_PER_R);
-    stepper4.moveTo(10 * STEPS_PER_R);
+    stepper1.moveTo(10 * R_TO_STEPS);
+    stepper2.moveTo(10 * R_TO_STEPS);
+    stepper3.moveTo(10 * R_TO_STEPS);
+    stepper4.moveTo(10 * R_TO_STEPS);
 
     // Add steppers
-    steppers.addStepper(stepper1);
-    steppers.addStepper(stepper2);
-    steppers.addStepper(stepper3);
+    // TODO change order of steppers
     steppers.addStepper(stepper4);
+    steppers.addStepper(stepper3);
+    steppers.addStepper(stepper2);
+    steppers.addStepper(stepper1);
 }
 
 void loop()
 {
-    while (digitalRead(BUTTON_PIN)) {
+    while (digitalRead(BUTTON_PIN))
+    {
         ;
     }
 
-    configIndividual();
-
-    stepper1.runToNewPosition(-300);
-    delay(200);
-
-    stepper2.runToNewPosition(-300);
-    delay(200);
-
-    stepper3.runToNewPosition(-300);
-    delay(200);
-
-    stepper4.runToNewPosition(-300);
-    delay(200);
-
+    // Wakeup sequence
+    // TODO make an actual sequence
     configGroup();
     for (auto &position : positions)
     {
         steppers.moveTo(position);
         steppers.runSpeedToPosition();
-        delay(200);
+        delay(20);
     }
+
+    // Random stuff
+    while (true) {
+        if (!digitalRead(BUTTON_PIN)) {
+            steppers.moveTo(positions[NUM_FRAMES - 1]);
+            steppers.runSpeedToPosition();
+            break;
+        }
+
+        randomHold[0] = (rand() % 90 + 45) * DEG_TO_STEPS; 
+        randomHold[1] = (rand() % 90 + 45) * DEG_TO_STEPS; 
+        randomHold[2] = (rand() % 90 + 45) * DEG_TO_STEPS; 
+        randomHold[3] = (rand() % 90 + 45) * DEG_TO_STEPS; 
+
+        steppers.moveTo(randomHold);
+        steppers.runSpeedToPosition();
+    }
+
 }
