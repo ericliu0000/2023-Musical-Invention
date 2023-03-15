@@ -4,9 +4,12 @@
 #include <MultiStepper.h>
 #include <MultiStepper.cpp>
 
+// to save half a cycle time
+bool state = false;
+
 const int MICROSTEPPING = 16;
 const long R_TO_STEPS = 200.0 * MICROSTEPPING;
-const long SPEED = 1 * R_TO_STEPS;
+const long SPEED = 0.25 * R_TO_STEPS;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
 const long GROUP_SPEED = 0.3 * R_TO_STEPS;
 const long DEG_TO_STEPS = R_TO_STEPS / 360;
@@ -34,7 +37,7 @@ const int E_STEP_PIN = 26;
 const int E_DIR_PIN = 28;
 const int E_ENABLE_PIN = 24;
 
-const int NUM_FRAMES = 18;
+const int NUM_FRAMES = 22;
 const int NUM_STEPPERS = 4;
 // Home is approximately the negative x axis
 long positions[NUM_FRAMES][NUM_STEPPERS] = {
@@ -48,10 +51,14 @@ long positions[NUM_FRAMES][NUM_STEPPERS] = {
     {30, 30, 30, 30},
     {170, 170, 170, 170},
     {30, 30, 30, 30},
-    {30, 170, 30, 170},
+    {90, 170, 90, 170},
     {30, 30, 30, 30},
-    {170, 30, 170, 30},
+    {170, 90, 170, 90},
     {90, 90, 90, 90},
+    {50, 90, 90, 90},
+    {50, 90, 90, 50},
+    {50, 130, 90, 50},
+    {50, 130, 130, 50},
     {90, 90, 90, 0},
     {90, 90, 0, 0},
     {90, 0, 0, 0},
@@ -71,6 +78,14 @@ AccelStepper stepper3 = AccelStepper(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIR_PIN
 AccelStepper stepper4 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN);
 
 MultiStepper steppers;
+
+
+void enableSteppers(bool enable) {
+    digitalWrite(X_ENABLE_PIN, !enable);
+    digitalWrite(Y_ENABLE_PIN, !enable);
+    digitalWrite(Z_ENABLE_PIN, !enable);
+    digitalWrite(E_ENABLE_PIN, !enable);
+}
 
 void configIndividual()
 {
@@ -130,39 +145,40 @@ void setup()
         }
     }
 
-    // Always enable stepper
+    // Configure enable pins
     pinMode(X_ENABLE_PIN, OUTPUT);
     pinMode(Y_ENABLE_PIN, OUTPUT);
     pinMode(Z_ENABLE_PIN, OUTPUT);
     pinMode(E_ENABLE_PIN, OUTPUT);
 
-    digitalWrite(X_ENABLE_PIN, 0);
-    digitalWrite(Y_ENABLE_PIN, 0);
-    digitalWrite(Z_ENABLE_PIN, 0);
-    digitalWrite(E_ENABLE_PIN, 0);
-
-    // Configure motors
+    // Enable and configure motors
+    enableSteppers(true);
     configIndividual();
 
-    // Set positions
-    stepper1.moveTo(10 * R_TO_STEPS);
-    stepper2.moveTo(10 * R_TO_STEPS);
-    stepper3.moveTo(10 * R_TO_STEPS);
-    stepper4.moveTo(10 * R_TO_STEPS);
-
     // Add steppers
-    // TODO change order of steppers
+    // TODO check order of steppers
     steppers.addStepper(stepper4);
     steppers.addStepper(stepper3);
     steppers.addStepper(stepper2);
     steppers.addStepper(stepper1);
 }
 
+void blink(int wait)
+{
+    digitalWrite(LED_BUILTIN, state);
+    state = !state;
+    if (wait > 0)
+    {
+        delay(wait);
+    }
+}
+
 void loop()
 {
+    configIndividual();
     while (digitalRead(BUTTON_PIN))
     {
-        ;
+        blink(250);
     }
 
     // Wakeup sequence
@@ -173,23 +189,27 @@ void loop()
         steppers.moveTo(position);
         steppers.runSpeedToPosition();
         delay(20);
+        blink(0);
     }
 
     // Random stuff
-    while (true) {
-        if (!digitalRead(BUTTON_PIN)) {
+    while (true)
+    {
+        if (!digitalRead(BUTTON_PIN))
+        {
             steppers.moveTo(positions[NUM_FRAMES - 1]);
             steppers.runSpeedToPosition();
+            digitalWrite(LED_BUILTIN, 0);
             break;
         }
 
-        randomHold[0] = (rand() % 90 + 45) * DEG_TO_STEPS; 
-        randomHold[1] = (rand() % 90 + 45) * DEG_TO_STEPS; 
-        randomHold[2] = (rand() % 90 + 45) * DEG_TO_STEPS; 
-        randomHold[3] = (rand() % 90 + 45) * DEG_TO_STEPS; 
+        randomHold[0] = (rand() % 100 + 50) * DEG_TO_STEPS;
+        randomHold[1] = (rand() % 100 + 50) * DEG_TO_STEPS;
+        randomHold[2] = (rand() % 100 + 50) * DEG_TO_STEPS;
+        randomHold[3] = (rand() % 100 + 50) * DEG_TO_STEPS;
 
         steppers.moveTo(randomHold);
         steppers.runSpeedToPosition();
+        blink(0);
     }
-
 }
