@@ -11,7 +11,7 @@ const int MICROSTEPPING = 16;
 const long R_TO_STEPS = 200.0 * MICROSTEPPING;
 const long SPEED = 0.5 * R_TO_STEPS;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
-const long GROUP_SPEED = 0.3 * R_TO_STEPS;
+const long GROUP_SPEED = 0.35 * R_TO_STEPS;
 const long DEG_TO_STEPS = R_TO_STEPS / 360;
 
 const int FAN_PIN = 9;
@@ -72,10 +72,10 @@ long positions[NUM_FRAMES][NUM_STEPPERS] = {
 
 long randomHold[NUM_STEPPERS] = {0, 0, 0, 0};
 
-AccelStepper stepper1 = AccelStepper(1, X_STEP_PIN, X_DIR_PIN);
-AccelStepper stepper2 = AccelStepper(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIR_PIN);
-AccelStepper stepper3 = AccelStepper(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIR_PIN);
-AccelStepper stepper4 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN);
+AccelStepper stepper1 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN);
+AccelStepper stepper2 = AccelStepper(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIR_PIN);
+AccelStepper stepper3 = AccelStepper(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIR_PIN);
+AccelStepper stepper4 = AccelStepper(AccelStepper::DRIVER, X_STEP_PIN, X_DIR_PIN);
 
 MultiStepper steppers;
 
@@ -157,10 +157,10 @@ void setup()
 
     // Add steppers
     // TODO check order of steppers
-    steppers.addStepper(stepper4);
-    steppers.addStepper(stepper3);
-    steppers.addStepper(stepper2);
     steppers.addStepper(stepper1);
+    steppers.addStepper(stepper2);
+    steppers.addStepper(stepper3);
+    steppers.addStepper(stepper4);
 }
 
 void hotGlueMode()
@@ -216,10 +216,10 @@ void loop()
             break;
         }
 
-        randomHold[0] = (rand() % 100 + 40) * DEG_TO_STEPS;
+        randomHold[0] += 120 * DEG_TO_STEPS;
         randomHold[1] = (rand() % 100 + 40) * DEG_TO_STEPS;
         randomHold[2] = (rand() % 100 + 40) * DEG_TO_STEPS;
-        randomHold[3] = (state ? 40 : 140) * DEG_TO_STEPS;
+        randomHold[3] = (rand() % 100 + 40) * DEG_TO_STEPS;
 
         steppers.moveTo(randomHold);
         steppers.runSpeedToPosition();
