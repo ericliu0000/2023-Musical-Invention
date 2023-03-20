@@ -4,8 +4,9 @@
 #include <MultiStepper.h>
 #include <MultiStepper.cpp>
 
-// to save half a cycle time
+// for led, flip
 bool state = false;
+bool flip = false;
 
 const int MICROSTEPPING = 16;
 const long R_TO_STEPS = 200.0 * MICROSTEPPING;
@@ -21,6 +22,7 @@ const int E1_PIN = 7;
 
 const int BUTTON_PIN = 67;
 const int ROTATE_PIN = 68;
+const int DISABLE_PIN = 69;
 
 const int X_STEP_PIN = 54;
 const int X_DIR_PIN = 55;
@@ -38,31 +40,22 @@ const int E_STEP_PIN = 26;
 const int E_DIR_PIN = 28;
 const int E_ENABLE_PIN = 24;
 
-const int NUM_FRAMES = 22;
+const int NUM_FRAMES = 13;
 const int NUM_STEPPERS = 4;
 // Home is approximately the negative x axis
 long positions[NUM_FRAMES][NUM_STEPPERS] = {
-    {90, 0, 0, 0},
-    {90, 90, 0, 0},
-    {90, 90, 90, 0},
-    {90, 90, 90, 90},
-    {170, 150, 130, 110},
-    {30, 50, 70, 90},
-    {170, 170, 170, 170},
-    {30, 30, 30, 30},
-    {170, 170, 170, 170},
-    {30, 30, 30, 30},
-    {90, 170, 90, 170},
-    {30, 30, 30, 30},
-    {170, 90, 170, 90},
-    {90, 90, 90, 90},
-    {50, 90, 90, 90},
-    {50, 90, 90, 50},
-    {50, 130, 90, 50},
-    {50, 130, 130, 50},
-    {90, 90, 90, 0},
-    {90, 90, 0, 0},
-    {90, 0, 0, 0},
+    {50, 0, 0, 0},
+    {50, 70, 0, 0},
+    {70, 110, -90, 0},
+    {50, 110, -180, -70},
+    {80, 90, -210, -90},
+    {-30, 130, -140, -30},
+    {60, 90, -250, -85},
+    {-30, 40, -90, -40},
+    {0, 90, -180, -90},
+    {0, 45, -180, -40},
+    {0, 0, -135, -40},
+    {0, 0, -90, 0},
     {0, 0, 0, 0},
     // {0, 0, 0, 0},
     // {0, 0, 0, 0},
@@ -88,6 +81,8 @@ void enableSteppers(bool enable)
 
 void configIndividual()
 {
+    enableSteppers(true);
+
     // Reset positions
     stepper1.setCurrentPosition(0);
     stepper2.setCurrentPosition(0);
@@ -113,6 +108,8 @@ void configIndividual()
 
 void configGroup()
 {
+    enableSteppers(true);
+
     // Reset positions
     stepper1.setCurrentPosition(0);
     stepper2.setCurrentPosition(0);
@@ -153,38 +150,9 @@ void blink(int wait)
     }
 }
 
-void setup()
+void runSequence()
 {
-    pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-    pinMode(ROTATE_PIN, INPUT_PULLUP);
-
-    for (int i = 0; i < NUM_FRAMES; i++)
-    {
-        for (int j = 0; j < NUM_STEPPERS; j++)
-        {
-            positions[i][j] = (long)positions[i][j] * DEG_TO_STEPS;
-        }
-    }
-
-    // Configure enable pins
-    pinMode(X_ENABLE_PIN, OUTPUT);
-    pinMode(Y_ENABLE_PIN, OUTPUT);
-    pinMode(Z_ENABLE_PIN, OUTPUT);
-    pinMode(E_ENABLE_PIN, OUTPUT);
-
-    // Enable and configure motors
-    enableSteppers(true);
-    configIndividual();
-
-    // Add steppers
-    steppers.addStepper(stepper1);
-    steppers.addStepper(stepper2);
-    steppers.addStepper(stepper3);
-    steppers.addStepper(stepper4);
-}
-
-void runSequence() {
+    // Wakeup animation
     for (auto &position : positions)
     {
         steppers.moveTo(position);
@@ -201,15 +169,13 @@ void runSequence() {
         }
     }
 
+    // Indefinite loop
     long randomHold[NUM_STEPPERS] = {0, 0, 0, 0};
-
-    // Random stuff
     while (true)
     {
         if (!digitalRead(BUTTON_PIN))
         {
             randomHold[1] = 0;
-            randomHold[2] = 0;
             randomHold[3] = 0;
 
             steppers.moveTo(randomHold);
@@ -218,10 +184,20 @@ void runSequence() {
             return;
         }
 
-        randomHold[0] += 120 * DEG_TO_STEPS;
-        randomHold[1] = (rand() % 100 + 40) * DEG_TO_STEPS;
-        randomHold[2] = (rand() % 100 + 40) * DEG_TO_STEPS;
-        randomHold[3] = (rand() % 100 + 40) * DEG_TO_STEPS;
+        randomHold[0] += 100 * DEG_TO_STEPS;
+        randomHold[1] = (rand() % 140 + 10) * DEG_TO_STEPS;
+        randomHold[2] += (flip ? -90 : 90) * DEG_TO_STEPS;
+        randomHold[3] = (randomHold[3] == -140 * DEG_TO_STEPS) ? -80 * DEG_TO_STEPS : -140 * DEG_TO_STEPS;
+
+        // for motor 3, flip if angle out of bounds
+        if (randomHold[2] <= -355 * DEG_TO_STEPS)
+        {
+            flip = false;
+        }
+        else if (randomHold[2] >= -95 * DEG_TO_STEPS)
+        {
+            flip = true;
+        }
 
         steppers.moveTo(randomHold);
         steppers.runSpeedToPosition();
@@ -229,9 +205,38 @@ void runSequence() {
     }
 }
 
+void setup()
+{
+    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(ROTATE_PIN, INPUT_PULLUP);
+    pinMode(DISABLE_PIN, INPUT_PULLUP);
+
+    for (int i = 0; i < NUM_FRAMES; i++)
+    {
+        for (int j = 0; j < NUM_STEPPERS; j++)
+        {
+            positions[i][j] = (long)positions[i][j] * DEG_TO_STEPS;
+        }
+    }
+
+    // Configure enable pins
+    pinMode(X_ENABLE_PIN, OUTPUT);
+    pinMode(Y_ENABLE_PIN, OUTPUT);
+    pinMode(Z_ENABLE_PIN, OUTPUT);
+    pinMode(E_ENABLE_PIN, OUTPUT);
+
+    // Add steppers
+    steppers.addStepper(stepper1);
+    steppers.addStepper(stepper2);
+    steppers.addStepper(stepper3);
+    steppers.addStepper(stepper4);
+}
+
 void loop()
 {
-    configIndividual();
+    // Disable steppers
+    enableSteppers(false);
 
     while (digitalRead(BUTTON_PIN))
     {
@@ -242,11 +247,14 @@ void loop()
             digitalWrite(LED_BUILTIN, 1);
             hotGlueMode();
         }
+        else if (!digitalRead(DISABLE_PIN))
+        {
+            enableSteppers(false);
+        }
     }
 
     // Wakeup sequence
     // TODO make an actual sequence
     configGroup();
     runSequence();
-    
 }
