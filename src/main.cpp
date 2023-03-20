@@ -11,7 +11,7 @@ const int MICROSTEPPING = 16;
 const long R_TO_STEPS = 200.0 * MICROSTEPPING;
 const long SPEED = 0.5 * R_TO_STEPS;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
-const long GROUP_SPEED = 0.35 * R_TO_STEPS;
+const long GROUP_SPEED = 0.3 * R_TO_STEPS;
 const long DEG_TO_STEPS = R_TO_STEPS / 360;
 
 const int FAN_PIN = 9;
@@ -20,6 +20,7 @@ const int E0_PIN = 10;
 const int E1_PIN = 7;
 
 const int BUTTON_PIN = 67;
+const int ROTATE_PIN = 68;
 
 const int X_STEP_PIN = 54;
 const int X_DIR_PIN = 55;
@@ -69,8 +70,6 @@ long positions[NUM_FRAMES][NUM_STEPPERS] = {
     // {0, 0, 0, 0},
     // {0, 0, 0, 0},
 };
-
-long randomHold[NUM_STEPPERS] = {0, 0, 0, 0};
 
 AccelStepper stepper1 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN);
 AccelStepper stepper2 = AccelStepper(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIR_PIN);
@@ -132,40 +131,8 @@ void configGroup()
     stepper4.setSpeed(GROUP_SPEED);
 }
 
-void setup()
-{
-    pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-
-    for (int i = 0; i < NUM_FRAMES; i++)
-    {
-        for (int j = 0; j < NUM_STEPPERS; j++)
-        {
-            positions[i][j] = (long)positions[i][j] * DEG_TO_STEPS;
-        }
-    }
-
-    // Configure enable pins
-    pinMode(X_ENABLE_PIN, OUTPUT);
-    pinMode(Y_ENABLE_PIN, OUTPUT);
-    pinMode(Z_ENABLE_PIN, OUTPUT);
-    pinMode(E_ENABLE_PIN, OUTPUT);
-
-    // Enable and configure motors
-    enableSteppers(true);
-    configIndividual();
-
-    // Add steppers
-    // TODO check order of steppers
-    steppers.addStepper(stepper1);
-    steppers.addStepper(stepper2);
-    steppers.addStepper(stepper3);
-    steppers.addStepper(stepper4);
-}
-
 void hotGlueMode()
 {
-    // not used, just for when it is needed
     configIndividual();
     while (digitalRead(BUTTON_PIN))
     {
@@ -186,34 +153,69 @@ void blink(int wait)
     }
 }
 
-void loop()
+void setup()
 {
-    configIndividual();
-    while (digitalRead(BUTTON_PIN))
+    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(ROTATE_PIN, INPUT_PULLUP);
+
+    for (int i = 0; i < NUM_FRAMES; i++)
     {
-        blink(200);
+        for (int j = 0; j < NUM_STEPPERS; j++)
+        {
+            positions[i][j] = (long)positions[i][j] * DEG_TO_STEPS;
+        }
     }
 
-    // Wakeup sequence
-    // TODO make an actual sequence
-    configGroup();
+    // Configure enable pins
+    pinMode(X_ENABLE_PIN, OUTPUT);
+    pinMode(Y_ENABLE_PIN, OUTPUT);
+    pinMode(Z_ENABLE_PIN, OUTPUT);
+    pinMode(E_ENABLE_PIN, OUTPUT);
+
+    // Enable and configure motors
+    enableSteppers(true);
+    configIndividual();
+
+    // Add steppers
+    steppers.addStepper(stepper1);
+    steppers.addStepper(stepper2);
+    steppers.addStepper(stepper3);
+    steppers.addStepper(stepper4);
+}
+
+void runSequence() {
     for (auto &position : positions)
     {
         steppers.moveTo(position);
         steppers.runSpeedToPosition();
         delay(20);
         blink(0);
+
+        if (!digitalRead(BUTTON_PIN))
+        {
+            steppers.moveTo(positions[NUM_FRAMES - 1]);
+            steppers.runSpeedToPosition();
+            digitalWrite(LED_BUILTIN, 0);
+            return;
+        }
     }
+
+    long randomHold[NUM_STEPPERS] = {0, 0, 0, 0};
 
     // Random stuff
     while (true)
     {
         if (!digitalRead(BUTTON_PIN))
         {
-            steppers.moveTo(positions[NUM_FRAMES - 1]);
+            randomHold[1] = 0;
+            randomHold[2] = 0;
+            randomHold[3] = 0;
+
+            steppers.moveTo(randomHold);
             steppers.runSpeedToPosition();
             digitalWrite(LED_BUILTIN, 0);
-            break;
+            return;
         }
 
         randomHold[0] += 120 * DEG_TO_STEPS;
@@ -225,4 +227,26 @@ void loop()
         steppers.runSpeedToPosition();
         blink(0);
     }
+}
+
+void loop()
+{
+    configIndividual();
+
+    while (digitalRead(BUTTON_PIN))
+    {
+        blink(200);
+
+        if (!digitalRead(ROTATE_PIN))
+        {
+            digitalWrite(LED_BUILTIN, 1);
+            hotGlueMode();
+        }
+    }
+
+    // Wakeup sequence
+    // TODO make an actual sequence
+    configGroup();
+    runSequence();
+    
 }
