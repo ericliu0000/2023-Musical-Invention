@@ -15,14 +15,9 @@ const long ACCELERATION = 800.0 * MICROSTEPPING;
 const long GROUP_SPEED = 0.3 * R_TO_STEPS;
 const long DEG_TO_STEPS = R_TO_STEPS / 360;
 
-const int FAN_PIN = 9;
-const int BED_PIN = 8;
-const int E0_PIN = 10;
-const int E1_PIN = 7;
-
-const int BUTTON_PIN = 67;
-const int ROTATE_PIN = 68;
-const int DISABLE_PIN = 69;
+const int ACTIVATE_PIN = 67;
+const int DISABLE_PIN = 68;
+const int PARTIAL_PIN = 69;
 
 const int X_STEP_PIN = 54;
 const int X_DIR_PIN = 55;
@@ -42,7 +37,6 @@ const int E_ENABLE_PIN = 24;
 
 const int NUM_FRAMES = 13;
 const int NUM_STEPPERS = 4;
-// Home is approximately the negative x axis
 long positions[NUM_FRAMES][NUM_STEPPERS] = {
     {50, 0, 0, 0},
     {50, 70, 0, 0},
@@ -57,11 +51,13 @@ long positions[NUM_FRAMES][NUM_STEPPERS] = {
     {0, 0, -135, -40},
     {0, 0, -90, 0},
     {0, 0, 0, 0},
-    // {0, 0, 0, 0},
-    // {0, 0, 0, 0},
-    // {0, 0, 0, 0},
-    // {0, 0, 0, 0},
-    // {0, 0, 0, 0},
+};
+
+long partialPositions[4][NUM_STEPPERS] = {
+    {60, 90, 0, -70},
+    {0, 30, 0, -70},
+    {60, 90, 0, 0},
+    {0, 0, 0, 0},
 };
 
 AccelStepper stepper1 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN);
@@ -77,33 +73,6 @@ void enableSteppers(bool enable)
     digitalWrite(Y_ENABLE_PIN, !enable);
     digitalWrite(Z_ENABLE_PIN, !enable);
     digitalWrite(E_ENABLE_PIN, !enable);
-}
-
-void configIndividual()
-{
-    enableSteppers(true);
-
-    // Reset positions
-    stepper1.setCurrentPosition(0);
-    stepper2.setCurrentPosition(0);
-    stepper3.setCurrentPosition(0);
-    stepper4.setCurrentPosition(0);
-
-    // Configure steppers
-    stepper1.setMaxSpeed(SPEED);
-    stepper2.setMaxSpeed(SPEED);
-    stepper3.setMaxSpeed(SPEED);
-    stepper4.setMaxSpeed(SPEED);
-
-    stepper1.setSpeed(SPEED);
-    stepper2.setSpeed(SPEED);
-    stepper3.setSpeed(SPEED);
-    stepper4.setSpeed(SPEED);
-
-    stepper1.setAcceleration(ACCELERATION);
-    stepper2.setAcceleration(ACCELERATION);
-    stepper3.setAcceleration(ACCELERATION);
-    stepper4.setAcceleration(ACCELERATION);
 }
 
 void configGroup()
@@ -128,18 +97,6 @@ void configGroup()
     stepper4.setSpeed(GROUP_SPEED);
 }
 
-void hotGlueMode()
-{
-    configIndividual();
-    while (digitalRead(BUTTON_PIN))
-    {
-        stepper1.runSpeed();
-        stepper2.runSpeed();
-        stepper3.runSpeed();
-        stepper4.runSpeed();
-    }
-}
-
 void blink(int wait)
 {
     digitalWrite(LED_BUILTIN, state);
@@ -150,17 +107,39 @@ void blink(int wait)
     }
 }
 
+void runPartialSequence()
+{
+    configGroup();
+
+    while (true)
+    {
+        for (auto &position : partialPositions)
+        {
+            if (!digitalRead(DISABLE_PIN))
+            {
+                steppers.moveTo(partialPositions[3]);
+                steppers.runSpeedToPosition();
+                return;
+            }
+
+            steppers.moveTo(position);
+            steppers.runSpeedToPosition();
+            blink(0);
+        }
+    }
+}
+
 void runSequence()
 {
+    configGroup();
     // Wakeup animation
     for (auto &position : positions)
     {
         steppers.moveTo(position);
         steppers.runSpeedToPosition();
-        delay(20);
         blink(0);
 
-        if (!digitalRead(BUTTON_PIN))
+        if (!digitalRead(DISABLE_PIN))
         {
             steppers.moveTo(positions[NUM_FRAMES - 1]);
             steppers.runSpeedToPosition();
@@ -170,36 +149,35 @@ void runSequence()
     }
 
     // Indefinite loop
-    long randomHold[NUM_STEPPERS] = {0, 0, 0, 0};
+    long hold[4] = {0, 0, 0, 0};
     while (true)
     {
-        if (!digitalRead(BUTTON_PIN))
+        if (!digitalRead(DISABLE_PIN))
         {
-            randomHold[1] = 0;
-            randomHold[3] = 0;
+            hold[1] = 0;
+            hold[3] = 0;
 
-            steppers.moveTo(randomHold);
+            steppers.moveTo(hold);
             steppers.runSpeedToPosition();
-            digitalWrite(LED_BUILTIN, 0);
             return;
         }
 
-        randomHold[0] += 100 * DEG_TO_STEPS;
-        randomHold[1] = (rand() % 140 + 10) * DEG_TO_STEPS;
-        randomHold[2] += (flip ? -90 : 90) * DEG_TO_STEPS;
-        randomHold[3] = (randomHold[3] == -140 * DEG_TO_STEPS) ? -80 * DEG_TO_STEPS : -140 * DEG_TO_STEPS;
+        hold[0] += 100 * DEG_TO_STEPS;
+        hold[1] = (rand() % 140 + 10) * DEG_TO_STEPS;
+        hold[2] += (flip ? -90 : 90) * DEG_TO_STEPS;
+        hold[3] = (hold[3] == -140 * DEG_TO_STEPS) ? -80 * DEG_TO_STEPS : -140 * DEG_TO_STEPS;
 
         // for motor 3, flip if angle out of bounds
-        if (randomHold[2] <= -355 * DEG_TO_STEPS)
+        if (hold[2] <= -355 * DEG_TO_STEPS)
         {
             flip = false;
         }
-        else if (randomHold[2] >= -95 * DEG_TO_STEPS)
+        else if (hold[2] >= -95 * DEG_TO_STEPS)
         {
             flip = true;
         }
 
-        steppers.moveTo(randomHold);
+        steppers.moveTo(hold);
         steppers.runSpeedToPosition();
         blink(0);
     }
@@ -208,15 +186,24 @@ void runSequence()
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-    pinMode(ROTATE_PIN, INPUT_PULLUP);
+    pinMode(ACTIVATE_PIN, INPUT_PULLUP);
+    pinMode(PARTIAL_PIN, INPUT_PULLUP);
     pinMode(DISABLE_PIN, INPUT_PULLUP);
 
+    // Convert to degrees
     for (int i = 0; i < NUM_FRAMES; i++)
     {
         for (int j = 0; j < NUM_STEPPERS; j++)
         {
             positions[i][j] = (long)positions[i][j] * DEG_TO_STEPS;
+        }
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < NUM_STEPPERS; j++)
+        {
+            partialPositions[i][j] = (long)partialPositions[i][j] * DEG_TO_STEPS;
         }
     }
 
@@ -238,23 +225,14 @@ void loop()
     // Disable steppers
     enableSteppers(false);
 
-    while (digitalRead(BUTTON_PIN))
+    blink(200);
+
+    if (!digitalRead(ACTIVATE_PIN))
     {
-        blink(200);
-
-        if (!digitalRead(ROTATE_PIN))
-        {
-            digitalWrite(LED_BUILTIN, 1);
-            hotGlueMode();
-        }
-        else if (!digitalRead(DISABLE_PIN))
-        {
-            enableSteppers(false);
-        }
+        runSequence();
     }
-
-    // Wakeup sequence
-    // TODO make an actual sequence
-    configGroup();
-    runSequence();
+    else if (!digitalRead(PARTIAL_PIN))
+    {
+        runPartialSequence();
+    }
 }
