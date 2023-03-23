@@ -53,6 +53,7 @@ long positions[NUM_FRAMES][NUM_STEPPERS] = {
     {0, 0, 0, 0},
 };
 
+const int PARTIAL_CYCLES = 48;
 long partialPositions[4][NUM_STEPPERS] = {
     {60, 90, 0, -70},
     {0, 30, 0, -70},
@@ -115,6 +116,7 @@ void runPartialSequence()
     {
         for (auto &position : partialPositions)
         {
+            // Disable when needed
             if (!digitalRead(DISABLE_PIN))
             {
                 steppers.moveTo(partialPositions[3]);
@@ -122,9 +124,31 @@ void runPartialSequence()
                 return;
             }
 
+            // Run for existing number of cycles
+            if (!digitalRead(ACTIVATE_PIN))
+            {
+                break;
+            }
+
             steppers.moveTo(position);
             steppers.runSpeedToPosition();
             blink(0);
+        }
+
+        // Run for certain number of cycles, then stop
+        for (int i = 0; i < PARTIAL_CYCLES; i++)
+        {
+            steppers.moveTo(partialPositions[i % 4]);
+            steppers.runSpeedToPosition();
+            blink(0);
+
+            // Disable if needed
+            if (!digitalRead(DISABLE_PIN))
+            {
+                steppers.moveTo(partialPositions[3]);
+                steppers.runSpeedToPosition();
+                return;
+            }
         }
     }
 }
@@ -132,6 +156,7 @@ void runPartialSequence()
 void runSequence()
 {
     configGroup();
+
     // Wakeup animation
     for (auto &position : positions)
     {
@@ -152,8 +177,10 @@ void runSequence()
     long hold[4] = {0, 0, 0, 0};
     while (true)
     {
+        // Park and stop when requested
         if (!digitalRead(DISABLE_PIN))
         {
+            // Reset positions of oscillating elements
             hold[1] = 0;
             hold[3] = 0;
 
@@ -162,12 +189,13 @@ void runSequence()
             return;
         }
 
+        // Update posiitons
         hold[0] += 100 * DEG_TO_STEPS;
         hold[1] = (rand() % 140 + 10) * DEG_TO_STEPS;
         hold[2] += (flip ? -90 : 90) * DEG_TO_STEPS;
         hold[3] = (hold[3] == -140 * DEG_TO_STEPS) ? -80 * DEG_TO_STEPS : -140 * DEG_TO_STEPS;
 
-        // for motor 3, flip if angle out of bounds
+        // For motor 3, flip angle
         if (hold[2] <= -355 * DEG_TO_STEPS)
         {
             flip = false;
