@@ -53,7 +53,7 @@ long positions[NUM_FRAMES][NUM_STEPPERS] = {
     {0, 0, 0, 0},
 };
 
-const int PARTIAL_CYCLES = 48;
+const int PARTIAL_CYCLES = 20;
 long partialPositions[4][NUM_STEPPERS] = {
     {60, 90, 0, -70},
     {0, 30, 0, -70},
@@ -100,7 +100,8 @@ void configGroup()
 
 void blink(int wait)
 {
-    digitalWrite(LED_BUILTIN, state);
+    // digitalWrite(LED_BUILTIN, state);
+    digitalWrite(LED_BUILTIN, false);
     state = !state;
     if (wait > 0)
     {
@@ -111,44 +112,18 @@ void blink(int wait)
 void runPartialSequence()
 {
     configGroup();
-
-    while (true)
+    // Run for certain number of cycles, then stop
+    for (int i = 0; i < PARTIAL_CYCLES; i++)
     {
-        for (auto &position : partialPositions)
+        steppers.moveTo(partialPositions[i % 4]);
+        steppers.runSpeedToPosition();
+
+        // Disable if needed
+        if (!digitalRead(DISABLE_PIN))
         {
-            // Disable when needed
-            if (!digitalRead(DISABLE_PIN))
-            {
-                steppers.moveTo(partialPositions[3]);
-                steppers.runSpeedToPosition();
-                return;
-            }
-
-            // Run for existing number of cycles
-            if (!digitalRead(ACTIVATE_PIN))
-            {
-                break;
-            }
-
-            steppers.moveTo(position);
+            steppers.moveTo(partialPositions[3]);
             steppers.runSpeedToPosition();
-            blink(0);
-        }
-
-        // Run for certain number of cycles, then stop
-        for (int i = 0; i < PARTIAL_CYCLES; i++)
-        {
-            steppers.moveTo(partialPositions[i % 4]);
-            steppers.runSpeedToPosition();
-            blink(0);
-
-            // Disable if needed
-            if (!digitalRead(DISABLE_PIN))
-            {
-                steppers.moveTo(partialPositions[3]);
-                steppers.runSpeedToPosition();
-                return;
-            }
+            return;
         }
     }
 }
@@ -162,7 +137,6 @@ void runSequence()
     {
         steppers.moveTo(position);
         steppers.runSpeedToPosition();
-        blink(0);
 
         if (!digitalRead(DISABLE_PIN))
         {
@@ -207,7 +181,6 @@ void runSequence()
 
         steppers.moveTo(hold);
         steppers.runSpeedToPosition();
-        blink(0);
     }
 }
 
@@ -253,7 +226,7 @@ void loop()
     // Disable steppers
     enableSteppers(false);
 
-    blink(200);
+    delay(200);
 
     if (!digitalRead(ACTIVATE_PIN))
     {
