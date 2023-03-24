@@ -98,17 +98,6 @@ void configGroup()
     stepper4.setSpeed(GROUP_SPEED);
 }
 
-void blink(int wait)
-{
-    // digitalWrite(LED_BUILTIN, state);
-    digitalWrite(LED_BUILTIN, false);
-    state = !state;
-    if (wait > 0)
-    {
-        delay(wait);
-    }
-}
-
 void runPartialSequence()
 {
     configGroup();
