@@ -5,13 +5,12 @@
 #include <MultiStepper.cpp>
 
 // for led, flip
-bool state = false;
 bool flip = false;
 
 const int MICROSTEPPING = 16;
 const long R_TO_STEPS = 200.0 * MICROSTEPPING;
-const long SPEED = 0.5 * R_TO_STEPS;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
+const long SPEED = 0.5 * R_TO_STEPS;
 const long GROUP_SPEED = 0.3 * R_TO_STEPS;
 const long DEG_TO_STEPS = R_TO_STEPS / 360;
 
@@ -101,6 +100,13 @@ void configGroup()
 void runPartialSequence()
 {
     configGroup();
+    // Wake up sequence
+    steppers.moveTo(partialPositions[1]);
+    steppers.runSpeedToPosition();
+    steppers.moveTo(partialPositions[3]);
+    steppers.runSpeedToPosition();
+
+
     // Run for certain number of cycles, then stop
     for (int i = 0; i < PARTIAL_CYCLES; i++)
     {
