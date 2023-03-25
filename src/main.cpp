@@ -1,12 +1,39 @@
+/**
+ * Beauty and the Beast "Invention" for Maurice's Entrance
+ *
+ * Uses:
+ * AccelStepper
+ * Copyright (c) 2010-2021 Mike McCauley
+ * Licensed under GPLv3
+ *
+ * Arduino SDK
+ * Copyright (c) 2005-2013 Arduino Team
+ * Licensed under LGPLv2.1
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <Arduino.h>
 #include <AccelStepper.h>
 #include <AccelStepper.cpp>
 #include <MultiStepper.h>
 #include <MultiStepper.cpp>
 
-// for led, flip
+// Program constants
 bool flip = false;
 
+// Stepper motor constants
 const int MICROSTEPPING = 16;
 const long R_TO_STEPS = 200.0 * MICROSTEPPING;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
@@ -14,28 +41,31 @@ const long SPEED = 0.5 * R_TO_STEPS;
 const long GROUP_SPEED = 0.3 * R_TO_STEPS;
 const long DEG_TO_STEPS = R_TO_STEPS / 360;
 
+// User input constants
 const int ACTIVATE_PIN = 67;
 const int DISABLE_PIN = 68;
 const int PARTIAL_PIN = 69;
 
+// Driver pin constants
 const int X_STEP_PIN = 54;
-const int X_DIR_PIN = 55;
-const int X_ENABLE_PIN = 38;
-
 const int Y_STEP_PIN = 60;
-const int Y_DIR_PIN = 61;
-const int Y_ENABLE_PIN = 56;
-
 const int Z_STEP_PIN = 46;
-const int Z_DIR_PIN = 48;
-const int Z_ENABLE_PIN = 62;
-
 const int E_STEP_PIN = 26;
+
+const int X_DIR_PIN = 55;
+const int Y_DIR_PIN = 61;
+const int Z_DIR_PIN = 48;
 const int E_DIR_PIN = 28;
+
+const int X_ENABLE_PIN = 38;
+const int Y_ENABLE_PIN = 56;
+const int Z_ENABLE_PIN = 62;
 const int E_ENABLE_PIN = 24;
 
-const int NUM_FRAMES = 13;
 const int NUM_STEPPERS = 4;
+
+// Predefined sequence for full operation
+const int NUM_FRAMES = 13;
 long positions[NUM_FRAMES][NUM_STEPPERS] = {
     {50, 0, 0, 0},
     {50, 70, 0, 0},
@@ -52,6 +82,7 @@ long positions[NUM_FRAMES][NUM_STEPPERS] = {
     {0, 0, 0, 0},
 };
 
+// Predefined sequence for entrance
 const int PARTIAL_CYCLES = 20;
 long partialPositions[4][NUM_STEPPERS] = {
     {60, 90, 0, -70},
@@ -60,6 +91,7 @@ long partialPositions[4][NUM_STEPPERS] = {
     {0, 0, 0, 0},
 };
 
+// Objects for stepper control
 AccelStepper stepper1 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN);
 AccelStepper stepper2 = AccelStepper(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIR_PIN);
 AccelStepper stepper3 = AccelStepper(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIR_PIN);
@@ -67,6 +99,12 @@ AccelStepper stepper4 = AccelStepper(AccelStepper::DRIVER, X_STEP_PIN, X_DIR_PIN
 
 MultiStepper steppers;
 
+/**
+ * Sets power state of stepper motor drivers. Assumes pull down logic
+ * for enable pins.
+ *
+ * @param enable Desired power state for drivers
+ */
 void enableSteppers(bool enable)
 {
     digitalWrite(X_ENABLE_PIN, !enable);
@@ -75,7 +113,13 @@ void enableSteppers(bool enable)
     digitalWrite(E_ENABLE_PIN, !enable);
 }
 
-void configGroup()
+/**
+ * Sets up motors for operation by:
+ * 1) enabling all stepper motors;
+ * 2) resetting stored positions to 0; and,
+ * 3) re-setting the desired motor speeds.
+ */
+void config()
 {
     enableSteppers(true);
 
@@ -97,15 +141,18 @@ void configGroup()
     stepper4.setSpeed(GROUP_SPEED);
 }
 
+/**
+ * Runs initial sequence when machine is brought onto the stage.
+ * Results in a 14 second long run time.
+ */
 void runPartialSequence()
 {
-    configGroup();
+    config();
     // Wake up sequence
     steppers.moveTo(partialPositions[1]);
     steppers.runSpeedToPosition();
     steppers.moveTo(partialPositions[3]);
     steppers.runSpeedToPosition();
-
 
     // Run for certain number of cycles, then stop
     for (int i = 0; i < PARTIAL_CYCLES; i++)
@@ -123,9 +170,13 @@ void runPartialSequence()
     }
 }
 
+/**
+ * Runs full sequence, resembling full function of machine.
+ * This runs until manually disabled.
+ */
 void runSequence()
 {
-    configGroup();
+    config();
 
     // Wakeup animation
     for (auto &position : positions)
@@ -135,9 +186,9 @@ void runSequence()
 
         if (!digitalRead(DISABLE_PIN))
         {
+            // Park and stop if requested
             steppers.moveTo(positions[NUM_FRAMES - 1]);
             steppers.runSpeedToPosition();
-            digitalWrite(LED_BUILTIN, 0);
             return;
         }
     }
@@ -158,7 +209,7 @@ void runSequence()
             return;
         }
 
-        // Update posiitons
+        // Update positions
         hold[0] += 100 * DEG_TO_STEPS;
         hold[1] = (rand() % 140 + 10) * DEG_TO_STEPS;
         hold[2] += (flip ? -90 : 90) * DEG_TO_STEPS;
@@ -181,12 +232,13 @@ void runSequence()
 
 void setup()
 {
+    // Set up user input pins
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(ACTIVATE_PIN, INPUT_PULLUP);
     pinMode(PARTIAL_PIN, INPUT_PULLUP);
     pinMode(DISABLE_PIN, INPUT_PULLUP);
 
-    // Convert to degrees
+    // Convert stored positions from degrees to steps
     for (int i = 0; i < NUM_FRAMES; i++)
     {
         for (int j = 0; j < NUM_STEPPERS; j++)
@@ -221,6 +273,7 @@ void loop()
     // Disable steppers
     enableSteppers(false);
 
+    // I am not smart enough to debounce the inputs. Here is the solution.
     delay(200);
 
     if (!digitalRead(ACTIVATE_PIN))
