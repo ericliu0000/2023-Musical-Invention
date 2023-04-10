@@ -35,11 +35,11 @@ bool flip = false;
 
 // Stepper motor constants
 const int MICROSTEPPING = 16;
-const long R_TO_STEPS = 200.0 * MICROSTEPPING;
+const long REVOLUTIONS_TO_STEPS = 200.0 * MICROSTEPPING;
 const long ACCELERATION = 800.0 * MICROSTEPPING;
-const long SPEED = 0.5 * R_TO_STEPS;
-const long GROUP_SPEED = 0.3 * R_TO_STEPS;
-const long DEG_TO_STEPS = R_TO_STEPS / 360;
+const long SPEED = 0.5 * REVOLUTIONS_TO_STEPS;
+const long GROUP_SPEED = 0.3 * REVOLUTIONS_TO_STEPS;
+const long DEGREES_TO_STEPS = REVOLUTIONS_TO_STEPS / 360;
 
 // User input constants
 const int ACTIVATE_PIN = 67;
@@ -52,10 +52,10 @@ const int Y_STEP_PIN = 60;
 const int Z_STEP_PIN = 46;
 const int E_STEP_PIN = 26;
 
-const int X_DIR_PIN = 55;
-const int Y_DIR_PIN = 61;
-const int Z_DIR_PIN = 48;
-const int E_DIR_PIN = 28;
+const int X_DIRECTION_PIN = 55;
+const int Y_DIRECTION_PIN = 61;
+const int Z_DIRECTION_PIN = 48;
+const int E_DIRECTION_PIN = 28;
 
 const int X_ENABLE_PIN = 38;
 const int Y_ENABLE_PIN = 56;
@@ -92,10 +92,10 @@ long partialPositions[4][NUM_STEPPERS] = {
 };
 
 // Objects for stepper control
-AccelStepper stepper1 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIR_PIN);
-AccelStepper stepper2 = AccelStepper(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIR_PIN);
-AccelStepper stepper3 = AccelStepper(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIR_PIN);
-AccelStepper stepper4 = AccelStepper(AccelStepper::DRIVER, X_STEP_PIN, X_DIR_PIN);
+AccelStepper stepper1 = AccelStepper(AccelStepper::DRIVER, E_STEP_PIN, E_DIRECTION_PIN);
+AccelStepper stepper2 = AccelStepper(AccelStepper::DRIVER, Z_STEP_PIN, Z_DIRECTION_PIN);
+AccelStepper stepper3 = AccelStepper(AccelStepper::DRIVER, Y_STEP_PIN, Y_DIRECTION_PIN);
+AccelStepper stepper4 = AccelStepper(AccelStepper::DRIVER, X_STEP_PIN, X_DIRECTION_PIN);
 
 MultiStepper steppers;
 
@@ -210,17 +210,17 @@ void runSequence()
         }
 
         // Update positions
-        hold[0] += 100 * DEG_TO_STEPS;
-        hold[1] = (rand() % 140 + 10) * DEG_TO_STEPS;
-        hold[2] += (flip ? -90 : 90) * DEG_TO_STEPS;
-        hold[3] = (hold[3] == -140 * DEG_TO_STEPS) ? -80 * DEG_TO_STEPS : -140 * DEG_TO_STEPS;
+        hold[0] += 100 * DEGREES_TO_STEPS;
+        hold[1] = (rand() % 140 + 10) * DEGREES_TO_STEPS;
+        hold[2] += (flip ? -90 : 90) * DEGREES_TO_STEPS;
+        hold[3] = (hold[3] == -140 * DEGREES_TO_STEPS) ? -80 * DEGREES_TO_STEPS : -140 * DEGREES_TO_STEPS;
 
         // For motor 3, flip angle
-        if (hold[2] <= -355 * DEG_TO_STEPS)
+        if (hold[2] <= -355 * DEGREES_TO_STEPS)
         {
             flip = false;
         }
-        else if (hold[2] >= -95 * DEG_TO_STEPS)
+        else if (hold[2] >= -95 * DEGREES_TO_STEPS)
         {
             flip = true;
         }
@@ -243,7 +243,7 @@ void setup()
     {
         for (int j = 0; j < NUM_STEPPERS; j++)
         {
-            positions[i][j] = (long)positions[i][j] * DEG_TO_STEPS;
+            positions[i][j] = (long)positions[i][j] * DEGREES_TO_STEPS;
         }
     }
 
@@ -251,7 +251,7 @@ void setup()
     {
         for (int j = 0; j < NUM_STEPPERS; j++)
         {
-            partialPositions[i][j] = (long)partialPositions[i][j] * DEG_TO_STEPS;
+            partialPositions[i][j] = (long)partialPositions[i][j] * DEGREES_TO_STEPS;
         }
     }
 
